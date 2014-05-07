@@ -84,6 +84,7 @@ class Plugin extends \Mibew\Plugin\AbstractPlugin implements \Mibew\Plugin\Plugi
         $dispatcher = \Mibew\EventDispatcher::getInstance();
         // There are a lot of events. Use a few of them to show how they work.
         $dispatcher->attachListener('pageAddCSS', $this, 'addCustomCss');
+        $dispatcher->attachListener('visitorTrack', $this, 'inviteVisitor');
     }
 
     /**
@@ -98,6 +99,34 @@ class Plugin extends \Mibew\Plugin\AbstractPlugin implements \Mibew\Plugin\Plugi
     public function addCustomCss(&$args)
     {
         $args['css'][] = MIBEW_WEB_ROOT . '/' . $this->getFilesPath() . '/css/styles.css';
+    }
+
+    /**
+     * Automatically invites visitor to the chat.
+     *
+     * @param array $args Event data
+     */
+    public function inviteVisitor($args)
+    {
+        $visitor = $args['visitor'];
+        $visitor_id = $visitor['visitorid'];
+
+        $invitation_state = invitation_state($visitor_id);
+        $spent_on_site = (time() - $visitor['firsttime']);
+        $was_invited = $visitor['invitations'] > 0;
+        $anybody_online = has_online_operators();
+
+        $send_invitation = !$invitation_state['invited']
+            && !$was_invited
+            && $spent_on_site > 5*60
+            && $anybody_online;
+
+        // Check if the visitor should be invited to chat
+        if ($send_invitation) {
+            // Send invitation to chat from the fist Mibew user (the admin).
+            $operator = operator_by_id(1);
+            invitation_invite($visitor_id, $operator);
+        }
     }
 
     /**
